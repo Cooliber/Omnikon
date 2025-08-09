@@ -180,9 +180,25 @@ const MotiaTray = ({ registry }: { registry: RegistryItem[] }) => {
               key={item.id}
               className="drag-tray-item"
               title={item.label}
+              role="button"
+              tabIndex={0}
+              aria-label={`Dodaj element: ${item.label}`}
               data-drag_item_index={index}
               onPointerDown={handlePointerDown}
               onPointerUp={handlePointerUp}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault()
+                  const center = editor.getViewportPageBounds().center
+                  editor.markHistoryStoppingPoint('motia: create from tray (kbd)')
+                  editor.createShape({
+                    type: item.shapeType,
+                    x: center.x - 50,
+                    y: center.y - 50,
+                    props: item.shapeProps,
+                  })
+                }
+              }}
             >
               {item.emoji ?? '🔹'}
             </div>

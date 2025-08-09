@@ -12,6 +12,9 @@ const TAVILY_KEY = (import.meta as any).env?.VITE_TAVILY_API_KEY as string | und
 const EXA_KEY = (import.meta as any).env?.VITE_EXA_API_KEY as string | undefined
 const FIRECRAWL_KEY = (import.meta as any).env?.VITE_FIRECRAWL_API_KEY as string | undefined
 const GREP_HTTP_URL = (import.meta as any).env?.VITE_GREP_HTTP_URL as string | undefined
+// Optional: proxy base to avoid exposing API keys client-side. If set, providers will call these endpoints instead.
+// e.g. VITE_RESEARCH_PROXY_BASE="/api/research" with server handlers at /api/research/{tavily,exa,firecrawl}
+const RESEARCH_PROXY_BASE = (import.meta as any).env?.VITE_RESEARCH_PROXY_BASE as string | undefined
 
 async function safeJson<T>(res: Response): Promise<T> {
   const text = await res.text()
@@ -22,16 +25,20 @@ async function safeJson<T>(res: Response): Promise<T> {
   }
 }
 
-async function fetchJsonWithRetry<T>(url: string, init: RequestInit, retries = 1): Promise<T> {
+async function fetchJsonWithRetry<T>(url: string, init: RequestInit, retries = 1, timeoutMs = 10000): Promise<T> {
   let lastErr: any
   for (let i = 0; i <= retries; i++) {
+    const controller = new AbortController()
+    const to = setTimeout(() => controller.abort(), timeoutMs)
     try {
-      const res = await fetch(url, init)
+      const res = await fetch(url, { ...init, signal: controller.signal })
       if (!res.ok) throw new Error(`${res.status} ${res.statusText}`)
       return await safeJson<T>(res)
     } catch (e) {
       lastErr = e
       if (i < retries) await new Promise((r) => setTimeout(r, 400 * (i + 1)))
+    } finally {
+      clearTimeout(to)
     }
   }
   throw lastErr
@@ -41,6 +48,16 @@ export const grepProvider: ResearchProvider = {
   id: 'grep',
   name: 'Grep (lokalnie)',
   async search(query: string) {
+    const proxy = RESEARCH_PROXY_BASE?.replace(/\/$/, '')
+    if (proxy) {
+      const data = await fetchJsonWithRetry<any>(`${proxy}/grep`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query }),
+      }, 1)
+      const items = (data.results ?? data.data ?? []) as any[]
+      return items.map((r) => ({ title: r.path ?? 'Plik', snippet: r.line, url: r.url }))
+    }
     if (!GREP_HTTP_URL) {
       return [
         {
@@ -66,6 +83,16 @@ export const tavilyProvider: ResearchProvider = {
   id: 'tavily',
   name: 'Tavily (www)',
   async search(query: string) {
+    const proxy = RESEARCH_PROXY_BASE?.replace(/\/$/, '')
+    if (proxy) {
+      const data = await fetchJsonWithRetry<any>(`${proxy}/tavily`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query }),
+      }, 1)
+      const items = (data.results ?? data.data ?? []) as any[]
+      return items.map((r) => ({ title: r.title ?? r.url ?? 'Wynik', url: r.url, snippet: r.content ?? r.snippet }))
+    }
     if (!TAVILY_KEY) {
       return [
         { title: 'Brak klucza Tavily', snippet: 'Ustaw VITE_TAVILY_API_KEY aby włączyć integrację.' },
@@ -85,6 +112,16 @@ export const exaProvider: ResearchProvider = {
   id: 'exa',
   name: 'Exa (semantyczne)',
   async search(query: string) {
+    const proxy = RESEARCH_PROXY_BASE?.replace(/\/$/, '')
+    if (proxy) {
+      const data = await fetchJsonWithRetry<any>(`${proxy}/exa`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query, numResults: 5 }),
+      }, 1)
+      const items = (data.results ?? data.data ?? []) as any[]
+      return items.map((r) => ({ title: r.title ?? r.url ?? 'Wynik', url: r.url, snippet: r.text ?? r.snippet }))
+    }
     if (!EXA_KEY) {
       return [
         { title: 'Brak klucza Exa', snippet: 'Ustaw VITE_EXA_API_KEY aby włączyć integrację.' },
@@ -107,6 +144,16 @@ export const firecrawlProvider: ResearchProvider = {
   id: 'firecrawl',
   name: 'Firecrawl (scraping)',
   async search(query: string) {
+    const proxy = RESEARCH_PROXY_BASE?.replace(/\/$/, '')
+    if (proxy) {
+      const searchData = await fetchJsonWithRetry<any>(`${proxy}/firecrawl`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query, limit: 5 }),
+      }, 1)
+      const items = (searchData.results ?? searchData.data ?? []) as any[]
+      return items.map((r) => ({ title: r.title ?? r.url ?? 'Wynik', url: r.url, snippet: r.snippet }))
+    }
     if (!FIRECRAWL_KEY) {
       return [
         { title: 'Brak klucza Firecrawl', snippet: 'Ustaw VITE_FIRECRAWL_API_KEY aby włączyć integrację.' },
