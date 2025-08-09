@@ -66,9 +66,13 @@ const MotiaTray = ({ registry }: { registry: RegistryItem[] }) => {
     }
 
     function handlePointerUp(e: React.PointerEvent) {
+      e.preventDefault()
+      e.stopPropagation()
       const current = dragState.get()
-      target = e.currentTarget as HTMLDivElement
-      target.releasePointerCapture(e.pointerId)
+      const el = e.currentTarget as HTMLDivElement | null
+      if (el && (el as any).hasPointerCapture?.(e.pointerId)) {
+        el.releasePointerCapture(e.pointerId)
+      }
       switch (current.name) {
         case 'idle':
           break

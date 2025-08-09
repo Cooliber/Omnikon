@@ -15,15 +15,24 @@ async function post(path: string, body: any) {
     return { ok: false, message: 'Brak konfiguracji Convex (demo)' }
   }
   const url = BASE.replace(/\/$/, '') + (path.startsWith('/') ? path : '/' + path)
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  })
-  const text = await res.text()
-  let json: any = undefined
-  try { json = JSON.parse(text) } catch {}
-  return { ok: res.ok, status: res.status, json, text }
+  const controller = new AbortController()
+  const to = setTimeout(() => controller.abort(), 10000)
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+      signal: controller.signal,
+    })
+    const text = await res.text()
+    let json: any = undefined
+    try { json = JSON.parse(text) } catch {}
+    return { ok: res.ok, status: res.status, json, text }
+  } catch (err: any) {
+    return { ok: false, status: 0, json: undefined, text: String(err?.message ?? err) }
+  } finally {
+    clearTimeout(to)
+  }
 }
 
 export async function saveFormData(payload: any) {
