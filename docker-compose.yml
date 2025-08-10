@@ -1,0 +1,79 @@
+version: "3.9"
+
+services:
+  frontend:
+    image: node:20-bullseye
+    container_name: motia-frontend
+    working_dir: /work
+    command: bash -lc "corepack enable && yarn install --immutable || yarn install && yarn workspace examples.tldraw.com dev --host 0.0.0.0"
+    ports:
+      - "5173:5173"
+    environment:
+      - NODE_ENV=development
+      # Vite client uses these; proxy base points to backend container
+      - VITE_RESEARCH_PROXY_BASE=http://research-proxy:8787/api/research
+      - VITE_CONVEX_HTTP_URL=http://convex-mock:3001/api
+      - VITE_CONVEX_FORM_ENDPOINT=/forms/submit
+      - VITE_CONVEX_SHAPES_ENDPOINT=/shapes/save
+    env_file:
+      - ./.env
+    volumes:
+      - ./:/work:cached
+    depends_on:
+      research-proxy:
+        condition: service_healthy
+      convex-mock:
+        condition: service_healthy
+
+  research-proxy:
+    build:
+      context: ./services/research-proxy
+    container_name: research-proxy
+    ports:
+      - "8787:8787"
+    environment:
+      - NODE_ENV=development
+      - PORT=8787
+    env_file:
+      - ./.env
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8787/healthz"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  convex-mock:
+    build:
+      context: ./services/convex-mock
+    container_name: convex-mock
+    ports:
+      - "3001:3001"
+    environment:
+      - NODE_ENV=development
+      - PORT=3001
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:3001/healthz"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  raynet-adapter:
+    build:
+      context: ./services/raynet-adapter
+    container_name: raynet-adapter
+    ports:
+      - "8000:8000"
+    environment:
+      - PORT=8000
+    env_file:
+      - ./.env
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/healthz"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+networks:
+  default:
+    name: motia-net
+
