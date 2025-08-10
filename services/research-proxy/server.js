@@ -56,9 +56,16 @@ app.post('/api/research/firecrawl', async (req, res) => {
   res.status(out.status || 500).json(out.json ?? { error: out.text })
 })
 
-app.post('/api/research/grep', async (_req, res) => {
-  // Placeholder for local code search backends
-  res.json({ results: [] })
+app.post('/api/research/grep', async (req, res) => {
+  const { query } = req.body || {}
+
+  // In production, this could connect to a code search service
+  // For now, return empty results
+  res.json({
+    results: [],
+    message: 'Local code search not available in production deployment',
+    query
+  })
 })
 
 app.listen(PORT, () => console.log(`[research-proxy] listening on ${PORT}`))

@@ -1,0 +1,45 @@
+name = "motia-hvac-crm"
+main = "src/index.ts"
+compatibility_date = "2024-08-01"
+compatibility_flags = ["nodejs_compat"]
+
+[env.production]
+name = "motia-hvac-crm-prod"
+routes = [
+  { pattern = "your-domain.com/*", zone_name = "your-domain.com" },
+  { pattern = "api.your-domain.com/*", zone_name = "your-domain.com" }
+]
+
+[env.staging]
+name = "motia-hvac-crm-staging"
+
+# Environment variables (set via wrangler secret put)
+[vars]
+NODE_ENV = "production"
+FRONTEND_URL = "https://your-domain.com"
+
+# KV namespaces for caching
+[[kv_namespaces]]
+binding = "CACHE"
+id = "your-kv-namespace-id"
+preview_id = "your-preview-kv-namespace-id"
+
+# D1 database for persistence
+[[d1_databases]]
+binding = "DB"
+database_name = "motia-hvac-db"
+database_id = "your-d1-database-id"
+
+# R2 bucket for file storage
+[[r2_buckets]]
+binding = "FILES"
+bucket_name = "motia-hvac-files"
+
+# Durable Objects for real-time features
+[[durable_objects.bindings]]
+name = "WORKFLOW_STATE"
+class_name = "WorkflowState"
+
+[[migrations]]
+tag = "v1"
+new_classes = ["WorkflowState"]
