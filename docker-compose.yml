@@ -19,11 +19,13 @@ services:
       - ./.env
     volumes:
       - ./:/work:cached
+      - node_modules_cache:/work/node_modules
     depends_on:
       research-proxy:
         condition: service_healthy
       convex-mock:
         condition: service_healthy
+    restart: unless-stopped
 
   research-proxy:
     build:
@@ -41,6 +43,7 @@ services:
       interval: 10s
       timeout: 5s
       retries: 10
+    restart: unless-stopped
 
   convex-mock:
     build:
@@ -56,6 +59,7 @@ services:
       interval: 10s
       timeout: 5s
       retries: 10
+    restart: unless-stopped
 
   raynet-adapter:
     build:
@@ -72,6 +76,11 @@ services:
       interval: 10s
       timeout: 5s
       retries: 10
+    restart: unless-stopped
+
+volumes:
+  node_modules_cache:
+    driver: local
 
 networks:
   default:
